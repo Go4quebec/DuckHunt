@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modern Duck Hunt</title>
+  <style>
+    body { margin:0; overflow:hidden; }
+    #gameCanvas { display:block; background:#eef; }
+    #playBtn {
+      position:absolute; top:20px; left:50%;
+      transform:translateX(-50%);
+      font-size:18px; padding:10px 20px;
+      z-index:100;
+    }
+  </style>
+</head>
+<body>
+  <button id="playBtn">▶️ Play Modern Duck Hunt</button>
+  <canvas id="gameCanvas" width="640" height="480"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const playBtn = document.getElementById('playBtn');
+    let ducks = [], score = 0, level = 1, lastSpawn = 0;
+    let autoFire = true, firing = false, fireCooldown = 0;
+    let mouse = { x:0, y:0 };
+
+    playBtn.onclick = () => {
+      playBtn.style.display = 'none';
+      startGame();
+    };
+
+    canvas.addEventListener('mousedown', () => firing = true);
+    canvas.addEventListener('mouseup', () => firing = false);
+    canvas.addEventListener('mousemove', e => {
+      const r = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - r.left;
+      mouse.y = e.clientY - r.top;
+    });
+
+    function startGame() {
+      ducks = []; score = 0; level = 1; lastSpawn = performance.now();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function spawnDuck() {
+      const speed = 1 + level * 0.3;
+      const angle = Math.random() * 2 * Math.PI;
+      ducks.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        dx: Math.cos(angle) * speed,
+        dy: Math.sin(angle) * speed,
+        radius: 20
+      });
+    }
+
+    let lastLoop = 0;
+    function gameLoop(ts) {
+      if (!lastLoop) lastLoop = ts;
+      if (ts - lastSpawn > Math.max(1000 - level * 50, 300)) {
+        spawnDuck();
+        lastSpawn = ts;
+      }
+
+      if (autoFire && firing && fireCooldown <= 0) {
+        ducks = ducks.filter(d => {
+          const dist = Math.hypot(mouse.x - d.x, mouse.y - d.y);
+          if (dist < d.radius) {
+            score += 100;
+            return false;
+          }
+          return true;
+        });
+        fireCooldown = 100;
+        if (ducks.length === 0) level++;
+      }
+      fireCooldown -= ts - lastLoop;
+      lastLoop = ts;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ducks.forEach(d => {
+        d.x += d.dx; d.y += d.dy;
+        if (d.x < 0 || d.x > canvas.width) d.dx *= -1;
+        if (d.y < 0 || d.y > canvas.height) d.dy *= -1;
+        ctx.fillStyle = 'orange';
+        ctx.beginPath(); ctx.arc(d.x, d.y, d.radius, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+
+      ctx.fillStyle = 'black';
+      ctx.font = '20px sans-serif';
+      ctx.fillText(`Score: ${score}`, 10, 25);
+      ctx.fillText(`Level: ${level}`, 10, 50);
+      ctx.fillText(`Mode: Auto`, 450, 25);
+
+      ctx.strokeStyle = 'red';
+      ctx.beginPath();
+      ctx.moveTo(mouse.x-10, mouse.y);
+      ctx.lineTo(mouse.x+10, mouse.y);
+      ctx.moveTo(mouse.x, mouse.y-10);
+      ctx.lineTo(mouse.x, mouse.y+10);
+      ctx.stroke();
+
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
